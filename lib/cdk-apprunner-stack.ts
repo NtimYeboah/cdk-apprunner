@@ -108,16 +108,6 @@ export class CdkApprunnerStack extends cdk.Stack {
           imageRepositoryType: "ECR",
           imageConfiguration: {
             port: "80",
-            runtimeEnvironmentVariables: [
-              {
-                name: "APP_KEY",
-                value: "base64:Rf1aqxxb9e23SsIKhBcgrQM7Y2/pyKQJFxcT+tfk97o=",
-              },
-              {
-                name: "DB_CONNECTION",
-                value: "mysql",
-              }
-            ],
           },
         },
       },
