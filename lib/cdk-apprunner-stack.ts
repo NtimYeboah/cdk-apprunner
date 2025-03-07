@@ -4,7 +4,6 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as apprunner from "aws-cdk-lib/aws-apprunner";
-import * as sm from "aws-cdk-lib/aws-secretsmanager";
 
 export interface CdkApprunnerStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
