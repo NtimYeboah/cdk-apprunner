@@ -117,27 +117,7 @@ export class CdkApprunnerStack extends cdk.Stack {
               {
                 name: "DB_CONNECTION",
                 value: "mysql",
-              },
-              {
-                name: "DB_DATABASE",
-                value: rdsInstance.secret?.secretValueFromJson('dbname').unsafeUnwrap(),
-              },
-              {
-                name: "DB_HOST",
-                value: rdsInstance.secret?.secretValueFromJson('host').unsafeUnwrap(),
-              },
-              {
-                name: "DB_PORT",
-                value: rdsInstance.secret?.secretValueFromJson('port').unsafeUnwrap(),
-              },
-              {
-                name: "DB_USERNAME",
-                value: rdsInstance.secret?.secretValueFromJson('username').unsafeUnwrap(),
-              },
-              {
-                name: "DB_PASSWORD",
-                value: rdsInstance.secret?.secretValueFromJson('password').unsafeUnwrap(),
-              },
+              }
             ],
           },
         },
