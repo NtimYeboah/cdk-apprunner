@@ -104,7 +104,7 @@ export class CdkApprunnerStack extends cdk.Stack {
         },
         autoDeploymentsEnabled: true,
         imageRepository: {
-          imageIdentifier: `${this.account}.dkr.ecr.${this.region}.amazonaws.com/laravel12-apprunner:507a50414e66af4c55051a948362c71191affdd9`, //`${this.account}.dkr.ecr.${this.region}.amazonaws.com/${this.appName}:latest`, // Change to Reposity
+          imageIdentifier: `${this.account}.dkr.ecr.${this.region}.amazonaws.com/laravel12-apprunner:7be1c232e1d0ee37c14b11dd823a506f54ebf1f5`, //`${this.account}.dkr.ecr.${this.region}.amazonaws.com/${this.appName}:latest`, // Change to Reposity
           imageRepositoryType: "ECR",
           imageConfiguration: {
             port: "80",
