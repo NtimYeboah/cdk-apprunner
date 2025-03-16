@@ -3,7 +3,9 @@ import { Construct } from 'constructs';
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as apprunner from "aws-cdk-lib/aws-apprunner";
+import config from './config';
 
 export interface CdkApprunnerStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
@@ -12,23 +14,33 @@ export interface CdkApprunnerStackProps extends cdk.StackProps {
 }
 
 export class CdkApprunnerStack extends cdk.Stack {
+  readonly repository: ecr.Repository;
+
   constructor(scope: Construct, id: string, props: CdkApprunnerStackProps) {
     super(scope, id, props);
 
-    const appRunnerECRRole = this.provisionAppRunnerECRRole(props.rdsInstance);
+    this.repository = this.provisionEcr();
+    const appRunnerECRRole = this.provisionAppRunnerECRRole();
     const appRunnerInstanceRole = this.provisionAppRunnerInstanceRole(props.rdsInstance);
     const vpcConnector = this.provisionVpcConnector(props.vpc);
-    const appRunnerService = this.provisionAppRunnerService(appRunnerECRRole, appRunnerInstanceRole, vpcConnector, props.rdsInstance);
+    const appRunnerService = this.provisionAppRunnerService(appRunnerECRRole, appRunnerInstanceRole, vpcConnector);
 
     // Apprunner service output
     new cdk.CfnOutput(this, "serviceUrl", {
       value: appRunnerService.attrServiceUrl,
       exportName: "serviceUrl",
     });
-
   }
 
-  provisionAppRunnerECRRole(rdsInstance: rds.DatabaseInstance) {
+  private provisionEcr() {
+    return new ecr.Repository(this, `${this.stackName}-Repository`, {
+      repositoryName: config.ecrRepositoryName(),
+      imageScanOnPush: config.ecrScanImageOnPush(),
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // or cdk.RemovalPolicy.RETAIN (option)
+    });
+  }
+
+  private provisionAppRunnerECRRole() {
     const ecrRole = new iam.Role(this, `${this.stackName}-apprunner-ecr-role`, {
       assumedBy: new iam.ServicePrincipal("build.apprunner.amazonaws.com"),
       description: `${this.stackName}-apprunner-ecr-role`,
@@ -37,7 +49,9 @@ export class CdkApprunnerStack extends cdk.Stack {
     ecrRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ["ecr:GetAuthorizationToken"],
-      resources: ["*"],
+      resources: [
+        `arn:aws:ecr:${this.region}:${this.repository.repositoryUri}`
+      ],
     }));
 
     ecrRole.addToPolicy(new iam.PolicyStatement({
@@ -56,14 +70,14 @@ export class CdkApprunnerStack extends cdk.Stack {
         "ecr:DescribeImageScanFindings",
       ],
       resources: [
-        "arn:aws:ecr:" + this.region + ":" + this.account + ":repository/laravel12-apprunner",
+        `arn:aws:ecr:${this.region}:${this.repository.repositoryUri}`
       ],
     }));
 
     return ecrRole;
   }
 
-  provisionAppRunnerInstanceRole(rdsInstance: rds.DatabaseInstance) {
+  private provisionAppRunnerInstanceRole(rdsInstance: rds.DatabaseInstance) {
     const instanceRole = new iam.Role(this, `${this.stackName}-apprunner-instance-role`, {
       assumedBy: new iam.ServicePrincipal('tasks.apprunner.amazonaws.com'),
       description: `${this.stackName}-apprunner-instance-role`,
@@ -75,7 +89,7 @@ export class CdkApprunnerStack extends cdk.Stack {
     return instanceRole;
   }
 
-  provisionVpcConnector(vpc: ec2.Vpc) {
+  private provisionVpcConnector(vpc: ec2.Vpc) {
 
     const vpcResourceSG = new ec2.SecurityGroup(this, `${this.stackName}-vpc-connector-sg`, {
         vpc,
@@ -95,33 +109,33 @@ export class CdkApprunnerStack extends cdk.Stack {
     });
   }
 
-  provisionAppRunnerService(appRunnerECRRole: iam.Role, appRunnerInstanceRole: iam.Role, vpcConnector: apprunner.CfnVpcConnector, rdsInstance: rds.DatabaseInstance) {
+  private provisionAppRunnerService(appRunnerECRRole: iam.Role, appRunnerInstanceRole: iam.Role, vpcConnector: apprunner.CfnVpcConnector) {
     return new apprunner.CfnService(this, `${this.stackName}-apprunner-service`, {
-      serviceName: "cdk-apprunner", //this.appName,
+      serviceName: config.apprunnerServiceName(),
       sourceConfiguration: {
         authenticationConfiguration: {
           accessRoleArn: appRunnerECRRole.roleArn,
         },
         autoDeploymentsEnabled: true,
         imageRepository: {
-          imageIdentifier: `${this.account}.dkr.ecr.${this.region}.amazonaws.com/laravel12-apprunner:7be1c232e1d0ee37c14b11dd823a506f54ebf1f5`, //`${this.account}.dkr.ecr.${this.region}.amazonaws.com/${this.appName}:latest`, // Change to Reposity
+          imageIdentifier: `arn:aws:ecr:${this.region}:${this.repository.repositoryUri}:latest`,
           imageRepositoryType: "ECR",
           imageConfiguration: {
-            port: "80",
+            port: config.apprunnerImagePort(),
           },
         },
       },
       instanceConfiguration: {
-        cpu: "1 vCPU",
-        memory: "2 GB",
+        cpu: config.apprunnerInstanceCpu(),
+        memory: config.apprunnerInstanceMemory(),
         instanceRoleArn: appRunnerInstanceRole.roleArn,
       },
       healthCheckConfiguration: {
         protocol: "TCP",
-        timeout: 3,
-        interval: 5,
-        unhealthyThreshold: 3,
-        healthyThreshold: 1
+        timeout: config.apprunnerHealthCheckTimeout(),
+        interval: config.apprunnerHealthCheckInterval(),
+        unhealthyThreshold: config.apprunnerHealthCheckUnhealthyThreshold(),
+        healthyThreshold: config.apprunnerHealthCheckHealthyThreshold(),
       },
       networkConfiguration: {
         egressConfiguration: {
